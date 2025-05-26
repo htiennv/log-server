@@ -83,11 +83,11 @@ async fn main() {
         .layer(TraceLayer::new_for_http());
 
     // Run it with hyper on localhost:8080
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:8080")
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080")
         .await
         .unwrap();
 
-    tracing::info!("Starting server at http://127.0.0.1:8080");
+    tracing::info!("Starting server at http://0.0.0.0:8080");
     tracing::info!("Logs will be written to: server.log");
 
     axum::serve(listener, app).await.unwrap();
