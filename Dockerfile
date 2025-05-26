@@ -58,6 +58,9 @@ VOLUME ["/app/logs"]
 # Set environment variables
 ENV RUST_LOG=info \
     LOG_PATH=/app/logs/server.log
+# Telegram environment variables (to be set at runtime)
+# ENV TELEGRAM_BOT_TOKEN=your_bot_token_here
+# ENV TELEGRAM_CHAT_ID=your_chat_id_here
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

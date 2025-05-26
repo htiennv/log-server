@@ -19,6 +19,13 @@ struct LogResponse {
     message: String,
 }
 
+#[derive(Serialize)]
+struct TelegramMessage {
+    chat_id: String,
+    text: String,
+    parse_mode: Option<String>,
+}
+
 async fn post_log(
     Json(payload): Json<LogRequest>,
 ) -> Result<ResponseJson<LogResponse>, StatusCode> {
@@ -30,6 +37,10 @@ async fn post_log(
     match write_to_log_file(&log_entry).await {
         Ok(_) => {
             tracing::info!("Logged: {}", payload.data);
+            // Send log entry to Telegram (use formatted log entry with timestamp)
+            if let Err(e) = send_to_telegram(&log_entry.trim()).await {
+                tracing::error!("Failed to send Telegram notification: {}", e);
+            }
             Ok(ResponseJson(LogResponse {
                 status: "success".to_string(),
                 message: "Log entry written successfully".to_string(),
@@ -56,6 +67,38 @@ async fn write_to_log_file(log_entry: &str) -> std::io::Result<()> {
 
 async fn health() -> &'static str {
     "OK"
+}
+
+async fn send_to_telegram(message: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let bot_token = std::env::var("TELEGRAM_BOT_TOKEN")
+        .map_err(|_| "TELEGRAM_BOT_TOKEN environment variable not set")?;
+    
+    let chat_id = std::env::var("TELEGRAM_CHAT_ID")
+        .map_err(|_| "TELEGRAM_CHAT_ID environment variable not set")?;
+    
+    let url = format!("https://api.telegram.org/bot{}/sendMessage", bot_token);
+    
+    let telegram_message = TelegramMessage {
+        chat_id,
+        text: format!("🔔 **Log Entry**\n```\n{}\n```", message),
+        parse_mode: Some("Markdown".to_string()),
+    };
+    
+    let client = reqwest::Client::new();
+    let response = client
+        .post(&url)
+        .json(&telegram_message)
+        .send()
+        .await?;
+    
+    if response.status().is_success() {
+        tracing::info!("Successfully sent message to Telegram");
+    } else {
+        let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+        tracing::error!("Failed to send message to Telegram: {}", error_text);
+    }
+    
+    Ok(())
 }
 
 #[tokio::main]
